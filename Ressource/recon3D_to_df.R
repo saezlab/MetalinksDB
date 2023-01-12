@@ -55,7 +55,8 @@ lbs <- as.data.frame(cbind(recon3D[[6]],recon3D[[7]]))
 lbs$direction <- ifelse((recon3D[[7]] + recon3D[[6]]) >= 0,"forward","backward")
 lbs$rev = ifelse((lbs$V1 == -1000), 'reversible', 'irreversible')
 lbs$rxnid = reaction_ids
-
+lbs_cut = lbs[row_sums_rnx_genes !=0,]
+###################### create met/gene links for all reactions #################
 colnames(S) = reaction_ids
 rownames(S) = mets
 S = S[,row_sums_rnx_genes !=0] # exclude orphan reactions
@@ -72,7 +73,7 @@ for(reaction in colnames(S)){
   a = cbind(rep(reactands, length(genes)), sort(rep(genes, length(reactands))))
   b = cbind(sort(rep(genes, length(products))), rep(products, length(genes)))
   c = rbind(a,b)
-  if(lbs$rev[counter] == 'reversible'){
+  if(lbs_cut$rev[counter] == 'reversible'){
     a_rec = c()
     b_rev = c()
     tryCatch({
@@ -90,11 +91,135 @@ for(reaction in colnames(S)){
 reactions_df <- ldply(reactions_df, rbind)
 reactions_df_rev <- ldply(reactions_df_rev, rbind)
 reactions_full = rbind(reactions_df, reactions_df_rev)
-write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_full.csv')
+#write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_full.csv')
 
+#################### create met/gene links for transport reactions #############
+#get all transport reactions
+reaction_names = as.data.frame(unlist(recon3D[[24]])[row_sums_rnx_genes !=0])
+colnames(reaction_names) = 'desc'
 reaction_ends = str_extract(colnames(S), '[:lower:]{1,}')
+reaction_ends[is.na(reaction_ends)] = 'no_ending'
 types = unique(reaction_ends)
+transport = colnames(S)[reaction_ends %in% c('t', 'tmi', 'te', )]
+transport1 = rowSums(sapply(c('influx', 'efflux', 'Efflux', 'transport', 'Transport', 'uptake', 'Uptake', 'Symport', 'symport', 'Antiport', 'antiport', 'uniport', 'Uniport', 'excretion', 'release'), grepl, x = reaction_names$desc, fixed = T))
+transport2 = sapply(c('t'), grepl, x = reaction_ends, fixed = T)
 
+#get intake reactions
+ST = S[,transport1>0] 
+lbsT = lbs_cut[transport1>0,]
+
+treactions = list()
+reactands = list()
+products = list()
+counter = 1
+for(reaction in colnames(ST)){
+  reactands[[counter]] = rownames(ST)[ST[,reaction] < 0]
+  products[[counter]] = rownames(ST)[ST[,reaction] > 0]
+  genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+  counter = counter +1
+}
+reactands = ldply(reactands, rbind)
+products <- ldply(products, rbind)
+in_out = cbind(reactands,products)
+
+comp = list()
+met = list()
+for(i in 1:9){
+  a = str_split(in_out[,i], '\\[', simplify = T)[,2]
+  b = str_split(a, '\\]', simplify = T)[,1]
+  c = str_split(in_out[,i], '\\[', simplify = T)[,1]
+  comp[[i]] = b
+  met[[i]]  = c
+}
+comp = t(ldply(comp, rbind))
+met = t(ldply(met, rbind))
+in_out_df = as.data.frame(cbind(met, comp))
+rownames(in_out_df) = colnames(ST)
+
+in_out_df$rev = lbsT$rev
+in_out_df$label = 'intra'
+in_out_df$transport_in = 'no transport_in'
+in_out_df$transport_out = 'no transport_out'
+in_out_df$score = 0
+in_out_m = as.matrix(in_out_df)
+in_mets = list()
+out_mets = list()
+counter = 1
+for(rxn in rownames(in_out_df)){
+  line= in_out_m[rxn,]
+  abundances = as.data.frame(table(line[1:9]))
+  candidates = abundances$Var1[abundances$Freq ==2]
+  in_score = 0
+  out_score = 0
+  if(length(candidates) > 0){
+    in_out_df[rxn,'label'] = 'outer_membrane_transport'
+    pos_met = which(line %in% candidates)
+    pos_comp = pos_met + 9
+    pos_in = pos_comp[1:length(pos_met)/2]
+    pos_out = pos_comp[length(pos_met)+1/2:length(pos_met)]
+    ins = line[pos_in]
+    outs= line[pos_out]
+    tin = list()
+    tout = list()
+    for (j in 1:length(candidates)){
+      if(ins[j] == 'e' & outs[j] == 'c'){
+        in_score = in_score +1
+        tin[[j]] = candidates[j]
+      }else if(ins[j] == 'c' & outs[j] == 'e'){
+        out_score = out_score +1
+        tout[[j]] = candidates[j]
+      }
+    }
+    in_out_df[rxn, 'transport_in'] =  paste(unlist(tin), collapse = ', ')
+    in_out_df[rxn, 'transport_out'] =  paste(unlist(tout), collapse = ', ')
+    in_mets[[counter]] = as.vector(unlist(tin))
+    out_mets[[counter]] = as.vector(unlist(tout))
+    counter = counter + 1
+  }
+  
+  in_out_df[rxn,'score'] = in_score + out_score
+}
+in_mets = unlist(in_mets)
+out_mets = unlist(out_mets)
+in_met_uni = unique(in_mets)
+out_met_uni = unique(out_mets)
+
+rev_df = in_out_df[in_out_df$rev == 'reversible',]
+#rownames(rev_df) = paste0(rownames(rev_df), '_rev')
+rev_df = rev_df[,c(5:9,1:4,14:18,10:13,19:20, 22,21,23)]
+colnames(rev_df) = colnames(in_out_df)
+
+intake = rbind(in_out_df[in_out_df$transport_in != '',], rev_df[rev_df$transport_in != '',] )
+intake = intake[intake$label != 'intra',]
+  
+STI = ST[,rownames(intake)]
+
+
+reactions_df = list()
+counter = 1
+for(reaction in colnames(STI)){
+  print(counter)
+  if(lbsT$rev[lbsT$rxnid == reaction] == 'irreversible'){
+    reactands = rownames(STI)[STI[,reaction] < 0]
+    genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+    a = cbind(rep(reactands, length(genes)), sort(rep(genes, length(reactands))))
+    reactions_df[[counter]] = a
+    counter = counter + 1
+  }else if(lbsT$rev[lbsT$rxnid == reaction] == 'reversible'){
+    products = rownames(S)[S[,reaction] > 0]
+    b = cbind(sort(rep(genes, length(products))), rep(products, length(genes)))
+    genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+    reactions_df[[counter]] = b
+    counter = counter + 1
+  }
+}
+reactions_df <- ldply(reactions_df, rbind)
+
+#write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_full.csv')
+
+
+
+#################### create metabolite mapping #################################
 #Data cleanup
 reactions_df$compartment  = paste0(str_split(reactions_df$V1, '\\[', simplify = T)[,2], str_split(reactions_df$V2, '\\[', simplify = T)[,2])
 reactions_df$V1 = str_split(reactions_df$V1, '\\[', simplify = T)[,1]
