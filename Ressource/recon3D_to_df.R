@@ -104,7 +104,7 @@ transport = colnames(S)[reaction_ends %in% c('t', 'tmi', 'te', )]
 transport1 = rowSums(sapply(c('influx', 'efflux', 'Efflux', 'transport', 'Transport', 'uptake', 'Uptake', 'Symport', 'symport', 'Antiport', 'antiport', 'uniport', 'Uniport', 'excretion', 'release'), grepl, x = reaction_names$desc, fixed = T))
 transport2 = sapply(c('t'), grepl, x = reaction_ends, fixed = T)
 
-#get intake reactions
+#get outtake reactions
 ST = S[,transport1>0] 
 lbsT = lbs_cut[transport1>0,]
 
@@ -172,6 +172,11 @@ for(rxn in rownames(in_out_df)){
     }
     in_out_df[rxn, 'transport_in'] =  paste(unlist(tin), collapse = ', ')
     in_out_df[rxn, 'transport_out'] =  paste(unlist(tout), collapse = ', ')
+    if(lbsT$rev[counter] == 'reversible'){
+      fused = as.vector(unlist(c(tin, tout)))
+      tin = fused
+      tout = fused
+    }
     in_mets[[counter]] = as.vector(unlist(tin))
     out_mets[[counter]] = as.vector(unlist(tout))
     counter = counter + 1
@@ -189,6 +194,8 @@ rev_df = in_out_df[in_out_df$rev == 'reversible',]
 rev_df = rev_df[,c(5:9,1:4,14:18,10:13,19:20, 22,21,23)]
 colnames(rev_df) = colnames(in_out_df)
 
+
+#################### get intake df #############################################
 intake = rbind(in_out_df[in_out_df$transport_in != '',], rev_df[rev_df$transport_in != '',] )
 intake = intake[intake$label != 'intra',]
   
@@ -207,17 +214,50 @@ for(reaction in colnames(STI)){
     counter = counter + 1
   }else if(lbsT$rev[lbsT$rxnid == reaction] == 'reversible'){
     products = rownames(S)[S[,reaction] > 0]
-    b = cbind(sort(rep(genes, length(products))), rep(products, length(genes)))
     genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+    b = cbind(rep(products, length(genes)), sort(rep(genes, length(products))))
     reactions_df[[counter]] = b
     counter = counter + 1
   }
 }
-reactions_df <- ldply(reactions_df, rbind)
 
-#write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_full.csv')
+reactions_df <- ldply(reactions_df, rbind) # fuse small dfs
+reactions_df <- reactions_df %>% distinct(.keep_all = TRUE) #erase dublicated columns
+clean_mets = str_split(reactions_df$`1`, '\\[', simplify = T)[,1]
+reactions_df = reactions_df[clean_mets %in% in_met_uni, ] # clean out antiporter molecules
+#write_csv2(reactions_df, '~/Documents/GitHub/metabolicCCC/Ressource/reactions_tin.csv')
 
 
+#################### get outtake df #############################################
+outtake = rbind(in_out_df[in_out_df$transport_out != '',], rev_df[rev_df$transport_out != '',] )
+outtake = outtake[outtake$label != 'intra',]
+
+STO = ST[,rownames(outtake)]
+
+reactions_df = list()
+counter = 1
+for(reaction in colnames(STO)){
+  print(counter)
+  if(lbsT$rev[lbsT$rxnid == reaction] == 'irreversible'){
+    reactands = rownames(STO)[STO[,reaction] < 0]
+    genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+    a = cbind(rep(reactands, length(genes)), sort(rep(genes, length(reactands))))
+    reactions_df[[counter]] = a
+    counter = counter + 1
+  }else if(lbsT$rev[lbsT$rxnid == reaction] == 'reversible'){
+    products = rownames(S)[S[,reaction] > 0]
+    genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+    b = cbind(rep(products, length(genes)), sort(rep(genes, length(products))))
+    reactions_df[[counter]] = b
+    counter = counter + 1
+  }
+}
+
+reactions_df <- ldply(reactions_df, rbind) # fuse small dfs
+reactions_df <- reactions_df %>% distinct(.keep_all = TRUE) #erase dublicated columns
+clean_mets = str_split(reactions_df$`1`, '\\[', simplify = T)[,1]
+reactions_df = reactions_df[clean_mets %in% out_met_uni, ] # clean out antiporter molecules
+#write_csv2(reactions_df, '~/Documents/GitHub/metabolicCCC/Ressource/reactions_tout.csv')
 
 #################### create metabolite mapping #################################
 #Data cleanup
