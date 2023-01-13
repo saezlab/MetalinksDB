@@ -1,3 +1,4 @@
+##################### general stuff ############################################
 library(R.matlab)
 library(stringr)
 library(readr)
@@ -91,22 +92,27 @@ for(reaction in colnames(S)){
 reactions_df <- ldply(reactions_df, rbind)
 reactions_df_rev <- ldply(reactions_df_rev, rbind)
 reactions_full = rbind(reactions_df, reactions_df_rev)
+reactions_full = reactions_full %>% distinct()
 #write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_full.csv')
 
 #################### create met/gene links for transport reactions #############
 #get all transport reactions
 reaction_names = as.data.frame(unlist(recon3D[[24]])[row_sums_rnx_genes !=0])
+subsystem = as.data.frame(unlist(recon3D[[29]])[row_sums_rnx_genes !=0])
+colnames(subsystem) = 'ss'
 colnames(reaction_names) = 'desc'
 reaction_ends = str_extract(colnames(S), '[:lower:]{1,}')
 reaction_ends[is.na(reaction_ends)] = 'no_ending'
 types = unique(reaction_ends)
 transport = colnames(S)[reaction_ends %in% c('t', 'tmi', 'te', )]
-transport1 = rowSums(sapply(c('influx', 'efflux', 'Efflux', 'transport', 'Transport', 'uptake', 'Uptake', 'Symport', 'symport', 'Antiport', 'antiport', 'uniport', 'Uniport', 'excretion', 'release'), grepl, x = reaction_names$desc, fixed = T))
+transport1 = rowSums(sapply(c('influx', 'efflux', 'Efflux', 'transport', 'Transport', 'uptake', 'Uptake', 'Symport', 'symport', 'Antiport', 
+                              'antiport', 'uniport', 'Uniport', 'excretion', 'release'), grepl, x = reaction_names$desc, fixed = T))
 transport2 = sapply(c('t'), grepl, x = reaction_ends, fixed = T)
+transport3 = rowSums(sapply(c('transport', 'Transport'), grepl, x = subsystem$ss, fixed = T))
 
 #get outtake reactions
-ST = S[,transport1>0] 
-lbsT = lbs_cut[transport1>0,]
+ST = S[,transport3>0] 
+lbsT = lbs_cut[transport3>0,]
 
 treactions = list()
 reactands = list()
@@ -259,6 +265,49 @@ clean_mets = str_split(reactions_df$`1`, '\\[', simplify = T)[,1]
 reactions_df = reactions_df[clean_mets %in% out_met_uni, ] # clean out antiporter molecules
 #write_csv2(reactions_df, '~/Documents/GitHub/metabolicCCC/Ressource/reactions_tout.csv')
 
+###################### create met/gene links for prod/deg reactions #################
+SPD = S[,transport3 == 0]
+
+reactions_df = list()
+reactions_df_rev = list()
+counter = 1
+counter2 = 1
+for(reaction in colnames(SPD)){
+  print(counter)
+  reactands = rownames(SPD)[SPD[,reaction] < 0]
+  products = rownames(SPD)[SPD[,reaction] > 0]
+  genes = reaction_to_genes[reaction_to_genes[,1] == reaction,2]
+  a = cbind(rep(reactands, length(genes)), sort(rep(genes, length(reactands))))
+  b = cbind(sort(rep(genes, length(products))), rep(products, length(genes)))
+  c = rbind(a,b)
+  if(lbs_cut$rev[counter] == 'reversible'){
+    a_rec = c()
+    b_rev = c()
+    tryCatch({
+      a_rev = a[,c(2,1)]
+      b_rev = b[,c(2,1)]
+    }, error = function(counter){paste('reaction:', counter, 'has either no products or reactands')}
+    )
+    c_rev = rbind(a_rev, b_rev)
+    reactions_df_rev[[counter2]] = as.data.frame(c_rev)
+    counter2 = counter2 + 1
+  }
+  reactions_df[[counter]] = as.data.frame(c)
+  counter = counter + 1
+}
+reactions_df <- ldply(reactions_df, rbind)
+reactions_df_rev <- ldply(reactions_df_rev, rbind)
+reactions_full = rbind(reactions_df, reactions_df_rev)
+reactions_full = reactions_full %>% distinct()
+
+# filter out SLC and ABC proteins manually
+
+transport_slc1 = sapply(c('SLC', 'ABC'), grepl, x = reactions_full$V1, fixed = T)
+transport_slc2 = sapply(c('SLC', 'ABC'), grepl, x = reactions_full$V2, fixed = T)
+transport_slc = rowSums(cbind(transport_slc1, transport_slc2))
+reactions_full = reactions_full[transport_slc==0,]
+
+#write_csv2(reactions_full, '~/Documents/Database_old/recon3D_full/reactions_df_pd.csv')
 #################### create metabolite mapping #################################
 #Data cleanup
 reactions_df$compartment  = paste0(str_split(reactions_df$V1, '\\[', simplify = T)[,2], str_split(reactions_df$V2, '\\[', simplify = T)[,2])
