@@ -315,9 +315,23 @@ reactions_df$V1 = str_split(reactions_df$V1, '\\[', simplify = T)[,1]
 reactions_df$V2 = str_split(reactions_df$V2, '\\[', simplify = T)[,1]
 reactions_df$compartment = str_split(reactions_df$compartment, '\\]', simplify = T)[,1]
 
+mets = unlist(recon3D[[2]])
 HMDB_list = recon3D[[16]]
 HMDB_list[sapply(recon3D[[16]], isEmpty)] = 'NA'
 HMDB = unlist(HMDB_list)
+for(i in 1:length(HMDB)){
+  if(nchar(HMDB[i]) == 9){
+    a = str_split(HMDB[i], 'MDB', simplify = T)[2]
+    HMDB[i] = paste0('HMDB00', a)
+  } else if(nchar(HMDB[i]) == 10){
+    a = str_split(HMDB[i], 'MDB', simplify = T)[2]
+    HMDB[i] = paste0('HMDB0', a)
+  }
+}
+
+
+
+
 chebi_list = recon3D[[30]]
 chebi_list[sapply(recon3D[[30]], isEmpty)] = 'NA'
 chebi = unlist(chebi_list)
@@ -326,7 +340,7 @@ chebi[chebi == 'NA'] = NA
 chebi[is.na(chebi) == F] = paste0('CHEBI:', chebi[is.na(chebi) == F])
 met_mapping = as.data.frame(cbind(mets, HMDB, chebi))
 
-write_csv2(met_mapping, '~/Documents/Database_old/recon3D_full/met_mapping.csv')
+write_csv2(met_mapping, '~/Documents/Database_old/recon3D_full/met_mapping2.csv')
 write_csv2(reactions_df, '~/Documents/Database_old/recon3D_full/reactions_df_clean.csv')
 
 
