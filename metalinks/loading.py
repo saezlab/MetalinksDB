@@ -26,7 +26,7 @@ def read_csv_to_matrix(file_path):
         data = []
         index = []
         for row in reader:
-            # Append the first column as index
+            # Append the first column as inde
             index.append(row[col_names[0]])
             # Append the rest of the columns as data
             data.append([float(row[col]) for col in col_names[1:]])
