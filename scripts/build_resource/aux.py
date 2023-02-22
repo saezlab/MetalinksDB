@@ -43,16 +43,20 @@ def object_to_string(series):
     series = series.str[:-2]
     return series
 
-def get_hmdb_ids(df, metmap1, metmap2):
+def get_hmdb_ids(df, metmap1, metmap2, metmap3):
     df = df.merge(metmap1, on='pubchem_id', how='left')
     df = df.merge(metmap2, on='pubchem_id', how='left')
+    df = df.merge(metmap3, on='pubchem_id', how='left')
     return df
 
 
-def drop_nan(df, col1, col2):
-    df = df.dropna(subset=[col1, col2], how='all')
+def drop_nan(df, col1, col2, col3):
+    df = df.copy()
+    df = df.dropna(subset=[col1, col2, col3], how='all')
     df[col1] = df[col1].fillna(df[col2])
+    df[col1] = df[col1].fillna(df[col3])
     df = df.drop(col2, axis=1)
+    df = df.drop(col3, axis=1)
     # if length is 9 insert two zeros after the first 4 characters
     df[col1] = np.where(df[col1].str.len() == 9, df[col1].str[:4] + '00' + df[col1].str[4:], df[col1])
     return df

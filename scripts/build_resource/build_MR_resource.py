@@ -46,6 +46,11 @@ parser.add_argument('--met_map_keno_dir',
                     required=False,
                     default=config['DefaultPaths']['met_map_keno_dir'])
 
+parser.add_argument('--met_map_hmdb_dir',
+                    help='',
+                    required=False,
+                    default=config['DefaultPaths']['met_map_hmdb_dir'])
+
 parser.add_argument('--mode_args',
                     help='Modes of action to include in the resource',
                     required=False,
@@ -109,21 +114,23 @@ del actions
 details['pubchem_id'] = details['chemical'].str[4:]
 
 metmap1 = pd.read_csv(args_dict['met_map_keno_dir'], sep='\t')
-metmap2 = pd.read_csv(args_dict['met_map_dir'], sep=';')
+metmap2 = pd.read_csv(args_dict['met_map_dir'], sep='\t', dtype=object)
+metmap3 = pd.read_csv(args_dict['met_map_hmdb_dir'], sep=',')
 
 details['pubchem_id'] = float_to_string(details['pubchem_id'])
+metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
 
 metmap1['pubchem_id'] = object_to_string(metmap1['pubchem_id'])
 metmap2['CID'] = object_to_string(metmap2['CID'])
 
 metmap2 = metmap2.rename(columns={'CID': 'pubchem_id'})
 
-merged_table = get_hmdb_ids(details, metmap1, metmap2)
+merged_table = get_hmdb_ids(details, metmap3, metmap1, metmap2)
 
-merged_table = drop_nan(merged_table, 'hmdb_id', 'HMDB')
+merged_table = drop_nan(merged_table, 'accession', 'hmdb_id', 'HMDB')
 
 # cut down merged table to only include columns that are in details and hmdb_id
-merged_table = merged_table[['hmdb_id','protein', 'database', 'experimental', 'textmining','combined_score', 'pubchem_id', 'Name']].drop_duplicates()
+merged_table = merged_table[['accession','protein', 'database', 'experimental', 'textmining','combined_score', 'pubchem_id', 'Name']].drop_duplicates() # keep interesting columns
 
 details = merged_table
 
@@ -159,7 +166,7 @@ details = details[(details['database'] > args_dict['confidence_cutoffs'][0]) | (
 print(f"After score filtering, {details.shape[0]} interations remain")
 
 
-details.to_csv(args_dict['out_dir'], sep='\t', index=False)
+#details.to_csv(args_dict['out_dir'], sep='\t', index=False)
 
 
 print('done')
