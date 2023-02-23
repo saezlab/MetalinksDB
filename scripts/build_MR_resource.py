@@ -8,7 +8,7 @@ this_script = os.path.dirname(sys.argv[0])
 script_path = os.path.abspath(this_script)
 
 config = configparser.ConfigParser()
-config.read(f'{script_path}/config.ini')
+config.read(f'{script_path}/../config.ini')
 
 
 ### Set arguments
@@ -166,7 +166,7 @@ details = details[(details['database'] > args_dict['confidence_cutoffs'][0]) | (
 print(f"After score filtering, {details.shape[0]} interations remain")
 
 
-#details.to_csv(args_dict['out_dir'], sep='\t', index=False)
+details.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
 
 
 print('done')
