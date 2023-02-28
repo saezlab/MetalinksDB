@@ -113,26 +113,37 @@ del actions
 # create column in details clipping the first four characters from the chemical column
 details['pubchem_id'] = details['chemical'].str[4:]
 
-metmap1 = pd.read_csv(args_dict['met_map_keno_dir'], sep='\t')
-metmap2 = pd.read_csv(args_dict['met_map_dir'], sep='\t', dtype=object)
+# metmap1 = pd.read_csv(args_dict['met_map_keno_dir'], sep='\t')
+# metmap2 = pd.read_csv(args_dict['met_map_dir'], sep='\t', dtype=object)
 metmap3 = pd.read_csv(args_dict['met_map_hmdb_dir'], sep=',')
 
 details['pubchem_id'] = float_to_string(details['pubchem_id'])
 metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
 
-metmap1['pubchem_id'] = object_to_string(metmap1['pubchem_id'])
-metmap2['CID'] = object_to_string(metmap2['CID'])
+# metmap1['pubchem_id'] = object_to_string(metmap1['pubchem_id'])
+# metmap2['CID'] = object_to_string(metmap2['CID'])
 
-metmap2 = metmap2.rename(columns={'CID': 'pubchem_id'})
+# metmap2 = metmap2.rename(columns={'CID': 'pubchem_id'})
 
-merged_table = get_hmdb_ids(details, metmap3, metmap1, metmap2)
+# print('hello')
 
-merged_table = drop_nan(merged_table, 'accession', 'hmdb_id', 'HMDB')
+# merged_table = get_hmdb_ids_s(details, metmap3)
 
-# cut down merged table to only include columns that are in details and hmdb_id
-merged_table = merged_table[['accession','protein', 'database', 'experimental', 'textmining','combined_score', 'pubchem_id', 'Name']].drop_duplicates() # keep interesting columns
+# print('bello')
 
-details = merged_table
+# merged_table = drop_nan(merged_table, 'accession', 'hmdb_id', 'HMDB')
+
+# print('nello')
+# # cut down merged table to only include columns that are in details and hmdb_id
+# merged_table = merged_table[['accession','protein', 'database', 'experimental', 'textmining','combined_score', 'pubchem_id', 'Name']].drop_duplicates() # keep interesting columns
+
+# details = merged_table
+#  merge metmap3 to details
+details = pd.merge(details, metmap3, on='pubchem_id', how='left')
+details.dropna(subset=['accession'], inplace=True)
+details = details.drop_duplicates()
+details.rename(columns={'accession': 'hmdb_id'}, inplace=True)
+
 
 print(f"After merging with HMDB, {details.shape[0]} interactions remain")
 
@@ -165,8 +176,9 @@ details = details[(details['database'] > args_dict['confidence_cutoffs'][0]) | (
 
 print(f"After score filtering, {details.shape[0]} interations remain")
 
-
-details.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
+small = details[['symbol', 'hmdb_id', 'name' ]]
+small.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
+#details.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
 
 
 print('done')
@@ -175,7 +187,10 @@ print('done')
 
 
 
-
+# hmdb_dict = dict(zip(metmap3['pubchem_id'], metmap3['accession']))
+# details['hmdb_id'] = details['pubchem_id'].map(hmdb_dict)
+# details.dropna(subset=['hmdb_id'], inplace=True)
+# details.drop_duplicates( inplace=True)
 
 
 

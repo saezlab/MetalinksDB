@@ -45,8 +45,18 @@ def object_to_string(series):
 
 def get_hmdb_ids(df, metmap1, metmap2, metmap3):
     df = df.merge(metmap1, on='pubchem_id', how='left')
+    df.drop_duplicates(inplace=True)
     df = df.merge(metmap2, on='pubchem_id', how='left')
+    df.drop_duplicates(inplace=True)
     df = df.merge(metmap3, on='pubchem_id', how='left')
+    df.drop_duplicates(inplace=True)
+    return df
+
+
+
+def get_hmdb_ids_s(df, metmap3):
+    df = df.merge(metmap3, on='pubchem_id', how='left')
+    df.drop_duplicates(inplace=True)
     return df
 
 
@@ -213,6 +223,36 @@ def get_gene_symbols(rxn_gene_df):
     rxn_gene_df = rxn_gene_df.drop('value', axis=1)
     rxn_gene_df.drop_duplicates(inplace=True)
     return rxn_gene_df
+
+
+def get_metabolites(S, d = 1):
+    S = S.copy()
+    S[S != d] = 0
+    S[S == d] = 1
+    S = S.stack().reset_index()
+    S.columns = ['metabolite_id', 'reaction_id', 'value']
+    S = S[S['value'] == 1]
+    S = S.drop('value', axis=1)
+    S.drop_duplicates(inplace=True)
+    return S
+
+# write function that creates a dataframe matching the metabolite_ids of reaction_to_metabolites_prod and reaction_to_metabolites_deg
+#  to gene names in reaction_to_genes
+# in this dataframe create a column that indicated whether the metabolite is produced or degraded
+
+def get_metabolite_to_gene(reaction_to_metabolites_prod, reaction_to_metabolites_deg, reaction_to_genes, lb_ub):
+    metabolite_to_gene = pd.merge(reaction_to_metabolites_prod, reaction_to_genes, on='reaction_id')
+    metabolite_to_gene_deg = pd.merge(reaction_to_metabolites_deg, reaction_to_genes, on='reaction_id')
+    metabolite_to_gene_deg['direction'] = 'degrading'
+    metabolite_to_gene = pd.concat([metabolite_to_gene, metabolite_to_gene_deg])
+    # name the entries in the direction column that are not degrading as producing
+    metabolite_to_gene['direction'] = metabolite_to_gene['direction'].apply(lambda x: 'producing' if x != 'degrading' else x)
+    # for reactions that are reversible we will add the other direction to the metabolite_to_gene dataframe
+    reversible_reactions = lb_ub[lb_ub['rev'] == 'reversible'].index
+    rev_df = metabolite_to_gene[metabolite_to_gene['reaction_id'].isin(reversible_reactions)]
+    rev_df['direction'] = rev_df['direction'].apply(lambda x: 'degrading' if x == 'producing' else 'producing')
+    metabolite_to_gene = pd.concat([metabolite_to_gene, rev_df])
+    return metabolite_to_gene
 
 
 
