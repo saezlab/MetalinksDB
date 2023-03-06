@@ -128,10 +128,6 @@ metabolite_to_gene.drop(['metabolite_id', 'reaction_id'], axis=1, inplace=True)
 metabolite_to_gene.drop_duplicates(inplace=True)
 metabolite_to_gene.dropna(subset=['hmdb_id'], inplace=True)
 
-metabolite_to_gene.rename(columns={'gene_id': 'GENE',
-                                    'hmdb_id':'HMDB'}, inplace=True)
-# reorder metabolites_to_gene columns
-metabolite_to_gene = metabolite_to_gene[['HMDB', 'GENE', 'direction']]
 
 metabolite_to_gene.to_csv(f'{args_dict["out_dir"]}/metabolite_to_gene_test.csv', index=False)
 

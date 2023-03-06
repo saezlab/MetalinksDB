@@ -106,6 +106,7 @@ actions = actions.rename(columns={'item_id_a': 'chemical', 'item_id_b': 'protein
 # reduce details dataframe to only include tuples of chemical and protein that are in actions dataframe
 details = details[details['chemical'].isin(actions['chemical']) & details['protein'].isin(actions['protein'])]
 
+
 print(f"After mode filtering, {actions.shape[0]} actions and {details.shape[0]} detailed interactions remain")
 
 del actions
@@ -140,8 +141,7 @@ metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
 # details = merged_table
 #  merge metmap3 to details
 details = pd.merge(details, metmap3, on='pubchem_id', how='left')
-details.dropna(subset=['accession'], inplace=True)
-details = details.drop_duplicates()
+details.drop_duplicates(subset= ['protein', 'accession'], keep='first', inplace=True)
 details.rename(columns={'accession': 'hmdb_id'}, inplace=True)
 
 
@@ -168,11 +168,14 @@ gtp_cut = gtp[gtp['Type'].isin(poi)]
 receptors = gtp_cut['HGNC symbol']
 
 details = details[details['symbol'].isin(receptors)]
+details.drop_duplicates(inplace=True)
 
 print(f"After filtering for receptors, {details.shape[0]} interactions remain")
 
 # further cut down details dataframe to only include rows with a database score higher than 150, experimental score higher than 150, and a textmining score higher than 700
 details = details[(details['database'] > args_dict['confidence_cutoffs'][0]) | (details['experimental'] > args_dict['confidence_cutoffs'][1]) | (details['textmining'] > args_dict['confidence_cutoffs'][2])]
+
+details.drop_duplicates(inplace=True)
 
 print(f"After score filtering, {details.shape[0]} interations remain")
 
