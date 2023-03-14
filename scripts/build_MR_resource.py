@@ -3,6 +3,7 @@ import os
 import argparse
 import configparser
 import pandas as pd
+import numpy as np
 
 this_script = os.path.dirname(sys.argv[0])
 script_path = os.path.abspath(this_script)
@@ -97,11 +98,9 @@ print(f"Loaded {actions.shape[0]} actions and {details.shape[0]} details")
 # cut down dataframe actions to include only the chosen modes of action
 actions = actions[actions['mode'].isin(args_dict['mode_args'])]
 
-# apply function to actions dataframe
-actions['item_id_a'], actions['item_id_b'] = zip(*actions.apply(flip_item_id, axis=1))
-
-# rename item_id_a and item_id_b to chemical and protein
-actions = actions.rename(columns={'item_id_a': 'chemical', 'item_id_b': 'protein'})
+actions['chemical'], actions['protein'] = np.where(actions['item_id_a'].str.startswith('9606'),
+                                                    (actions['item_id_b'], actions['item_id_a']),
+                                                    (actions['item_id_a'], actions['item_id_b']))
 
 # reduce details dataframe to only include tuples of chemical and protein that are in actions dataframe
 details = details[details['chemical'].isin(actions['chemical']) & details['protein'].isin(actions['protein'])]
