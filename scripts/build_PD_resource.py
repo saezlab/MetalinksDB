@@ -95,7 +95,6 @@ lb_ub['direction'] = lb_ub.apply(lambda x: 'forward' if x['ub'] > 0 else 'backwa
 print(f'successfully extracted data from model')
 
 reaction_to_genes = get_gene_symbols(rxn_gene_df)
-reaction_to_metabolites = get_metabolites(S)
 
 reaction_to_metabolites_prod = get_metabolites(S, d = 1)
 reaction_to_metabolites_deg = get_metabolites(S, d = -1)

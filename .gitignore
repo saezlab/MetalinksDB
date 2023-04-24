@@ -40,3 +40,5 @@ metalinks/.ipynb_checkpoints/met_int-checkpoint.py
 metalinks/.ipynb_checkpoints/operation-checkpoint.py
 metalinks/.ipynb_checkpoints/visualization-checkpoint.py
 scripts/__pycache__/aux.cpython-310.pyc
+*.pyc
+*.log

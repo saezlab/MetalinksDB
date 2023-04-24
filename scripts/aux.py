@@ -1,6 +1,7 @@
 from pypath.utils import mapping
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # write function to flip item_id_a and item_id_b value if item_id_a starts with 9606
@@ -201,7 +202,6 @@ def fill_missing_values(df1, df2, df3, str1 = 'chebi_id', str2 = 'kegg_id', str3
     return df1, df2, df3
 
 
-# write function that creates a dataframe with the reaction ids and associated metabolites
 def get_metabolites(S):
     S = S.copy()
     S[S != 0] = 1
@@ -212,7 +212,6 @@ def get_metabolites(S):
     S.drop_duplicates(inplace=True)
     return S
 
-# write function that creates a dataframe with the reaction ids and associated gene symbols
 def get_gene_symbols(rxn_gene_df):
     row_sums = rxn_gene_df.sum(axis=1)
     rxn_genes = rxn_gene_df.index[row_sums > 0]
@@ -236,23 +235,28 @@ def get_metabolites(S, d = 1):
     S.drop_duplicates(inplace=True)
     return S
 
-# write function that creates a dataframe matching the metabolite_ids of reaction_to_metabolites_prod and reaction_to_metabolites_deg
-#  to gene names in reaction_to_genes
-# in this dataframe create a column that indicated whether the metabolite is produced or degraded
-
 def get_metabolite_to_gene(reaction_to_metabolites_prod, reaction_to_metabolites_deg, reaction_to_genes, lb_ub):
     metabolite_to_gene = pd.merge(reaction_to_metabolites_prod, reaction_to_genes, on='reaction_id')
     metabolite_to_gene_deg = pd.merge(reaction_to_metabolites_deg, reaction_to_genes, on='reaction_id')
     metabolite_to_gene_deg['direction'] = 'degrading'
     metabolite_to_gene = pd.concat([metabolite_to_gene, metabolite_to_gene_deg])
-    # name the entries in the direction column that are not degrading as producing
     metabolite_to_gene['direction'] = metabolite_to_gene['direction'].apply(lambda x: 'producing' if x != 'degrading' else x)
-    # for reactions that are reversible we will add the other direction to the metabolite_to_gene dataframe
     reversible_reactions = lb_ub[lb_ub['rev'] == 'reversible'].index
     rev_df = metabolite_to_gene[metabolite_to_gene['reaction_id'].isin(reversible_reactions)]
     rev_df['direction'] = rev_df['direction'].apply(lambda x: 'degrading' if x == 'producing' else 'producing')
     metabolite_to_gene = pd.concat([metabolite_to_gene, rev_df])
     return metabolite_to_gene
+
+def plot_loss(history, limit=10):
+  plt.plot(history.history['loss'], label='loss')
+  plt.plot(history.history['val_loss'], label='val_loss')
+  plt.ylim([0, limit])
+  plt.xlabel('Epoch')
+  plt.ylabel('Error [Metabolites]')
+  plt.legend()
+  plt.grid(True)
+
+
 
 
 

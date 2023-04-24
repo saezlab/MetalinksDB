@@ -4,6 +4,7 @@ import argparse
 import configparser
 import pandas as pd
 import numpy as np
+from pypath.inputs import ramp
 
 this_script = os.path.dirname(sys.argv[0])
 script_path = os.path.abspath(this_script)
@@ -115,10 +116,10 @@ details['pubchem_id'] = details['chemical'].str[4:]
 
 # metmap1 = pd.read_csv(args_dict['met_map_keno_dir'], sep='\t')
 # metmap2 = pd.read_csv(args_dict['met_map_dir'], sep='\t', dtype=object)
-metmap3 = pd.read_csv(args_dict['met_map_hmdb_dir'], sep=',')
+# metmap3 = pd.read_csv(args_dict['met_map_hmdb_dir'], sep=',')
 
 details['pubchem_id'] = float_to_string(details['pubchem_id'])
-metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
+# metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
 
 # metmap1['pubchem_id'] = object_to_string(metmap1['pubchem_id'])
 # metmap2['CID'] = object_to_string(metmap2['CID'])
@@ -139,9 +140,32 @@ metmap3['pubchem_id'] = object_to_string(metmap3['pubchem_id'])
 
 # details = merged_table
 #  merge metmap3 to details
-details = pd.merge(details, metmap3, on='pubchem_id', how='left')
-details.drop_duplicates(subset= ['protein', 'accession'], keep='first', inplace=True)
-details.rename(columns={'accession': 'hmdb_id'}, inplace=True)
+
+id_dict = ramp.ramp_mapping('pubchem', 'hmdb')
+# convert pubchem ids to string
+details['pubchem_id'] = details['pubchem_id'].astype(str)
+
+
+# map id_dict to details dataframe
+details['HMDB'] = details['pubchem_id'].map(id_dict)
+
+# remove all rows where HMDB is nan
+details.dropna(subset=['HMDB'], inplace=True)
+
+# change all sets in HMDB column to lists if x is not nan
+details['HMDB'] = details['HMDB'].apply(lambda x: list(x) if not pd.isnull(x) else x)
+
+# takes the first element in the list in the HMDB column and puts it in a new column called hmdb_id
+details['hmdb_id'] = details['HMDB'].apply(lambda x: x[0])
+
+# if a hmdb id is not 11 characters long, introduce 0 after the hmdb that it tops up to 11 characters
+details['hmdb_id'] = details['hmdb_id'].apply(lambda x: x if len(x) == 11 else x + '0'*(11-len(x)))
+
+
+# details = pd.merge(details, metmap3, on='pubchem_id', how='left')
+# details.drop_duplicates(subset= ['protein', 'accession'], keep='first', inplace=True)
+# details.rename(columns={'accession': 'hmdb_id'}, inplace=True)
+# details.dropna(subset=['hmdb_id'], inplace=True)
 
 
 print(f"After merging with HMDB, {details.shape[0]} interactions remain")
@@ -167,18 +191,24 @@ gtp_cut = gtp[gtp['Type'].isin(poi)]
 receptors = gtp_cut['HGNC symbol']
 
 details = details[details['symbol'].isin(receptors)]
-details.drop_duplicates(inplace=True)
+#details.drop_duplicates(subset=['hmdb_id', 'symbol'], inplace=True)
 
 print(f"After filtering for receptors, {details.shape[0]} interactions remain")
 
 # further cut down details dataframe to only include rows with a database score higher than 150, experimental score higher than 150, and a textmining score higher than 700
 details = details[(details['database'] > args_dict['confidence_cutoffs'][0]) | (details['experimental'] > args_dict['confidence_cutoffs'][1]) | (details['textmining'] > args_dict['confidence_cutoffs'][2])]
 
-details.drop_duplicates(inplace=True)
+details.drop_duplicates(subset=['hmdb_id', 'symbol'], inplace=True)
 
 print(f"After score filtering, {details.shape[0]} interations remain")
 
-small = details[['symbol', 'hmdb_id', 'name' ]]
+small = details[['symbol', 'hmdb_id']]
+
+# for testing reasons add artificial cellular location with randomly shuffled [cytoplasm, nucleus, outer membrane, inner membrane, extracellular space]
+small['cellular_location'] = np.random.choice(['cytoplasm', 'nucleus', 'outer membrane', 'inner membrane', 'extracellular space'], size=small.shape[0])
+
+
+
 small.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
 #details.to_csv(f"{args_dict['out_dir']}/MR_test.csv", sep='\t', index=False)
 
