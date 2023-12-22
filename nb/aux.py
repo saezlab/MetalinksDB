@@ -6,9 +6,9 @@ from matplotlib import gridspec
 import matplotlib.colors as mcolors
 from scipy.stats import ttest_ind
 
-def load_prepro_metalinks(anno_path = '/home/efarr/Documents/metalinks/Data/Intermediate/HMDB/hmdb_metabolites_explained.csv', 
-                          MR_path = '/home/efarr/Documents/GitHub/metalinks/metalinksDB/MR_500500900.csv', 
-                          PD_path = '/home/efarr/Documents/GitHub/metalinks/metalinksDB/PD.csv'):
+def load_prepro_metalinks(anno_path = '/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/HMDB/hmdb_metabolites_explained.csv', 
+                          MR_path = '/Users/ef6/Documents/GitHub/metalinks_analysis/metalinksDB/MR_500500900.csv', 
+                          PD_path = '/Users/ef6/Documents/GitHub/metalinks_analysis/metalinksDB/PD.csv'):
     df = pd.read_csv(anno_path)
     MR_original = pd.read_csv(MR_path, sep=',')
     # remove " from HMDB and symbol column
@@ -23,11 +23,11 @@ def load_prepro_metalinks(anno_path = '/home/efarr/Documents/metalinks/Data/Inte
     return PD_original, MR_original, df, PD
 
 def load_prepro_other_dbs(MR_original, PD_original,
-                          cellphone_path = '/home/efarr/Documents/metalinks/Data/Source/Other_DBs/Cellphone_suptab4_curated.xlsx',
-                          neuronchat_path = '/home/efarr/Documents/metalinks/Data/Source/Other_DBs/NeuronChatDB_human.csv',
-                          mebocost_PD_path = '/home/efarr/Documents/metalinks/Data/Source/Other_DBs/MebocostPD.tsv',
-                          mebocost_MR_path = '/home/efarr/Documents/metalinks/Data/Source/Other_DBs/MebocostDB.tsv',
-                          neuronchat_table_path = '/home/efarr/Documents/metalinks/Data/Intermediate/Mapping/Neuronchat_table.csv'):
+                          cellphone_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/Cellphone_suptab4_curated.xlsx',
+                          neuronchat_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/NeuronChatDB_human.csv',
+                          mebocost_PD_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/MebocostPD.tsv',
+                          mebocost_MR_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/MebocostDB.tsv',
+                          neuronchat_table_path = '/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/Mapping/Neuronchat_table.csv'):
     cpdb = pd.read_excel(cellphone_path)
     metabolites = cpdb.iloc[0:230,2]
     sensors = cpdb.iloc[0:230,3]
@@ -84,7 +84,9 @@ def preprocess_data_for_barplot(data, database_names, index_names):
     df = pd.DataFrame({database_names[0]: data[0], 
                        database_names[1]: data[1],
                        database_names[2]: data[2],
-                       database_names[3]: data[3]}, index=index_names)
+                       database_names[3]: data[3],
+                       database_names[4]: data[4],
+                       database_names[5]: data[5]}, index=index_names)
     df = df.reset_index()
     df = pd.melt(df, id_vars=['index'], value_vars=database_names)
     df.columns = ['index', 'Database', 'Count']
@@ -122,28 +124,40 @@ def mr_barplot2(df):
 def prepare_fractions(data, df):
     nc_df = df[df['accession'].isin(data[0])]
     cp_df = df[df['accession'].isin(data[1])]
-    me_df = df[df['accession'].isin(data[2])]
-    ml_df = df[df['accession'].isin(data[3])]
+    cl_df = df[df['accession'].isin(data[2])]
+    me_df = df[df['accession'].isin(data[3])]
+    sc_df = df[df['accession'].isin(data[4])]
+    ml_df = df[df['accession'].isin(data[5])]
+
     classes = df.columns[6:10]
     res = []
     for met_class in classes:
         fractions = pd.DataFrame()
         fractions['MetalinksDB'] = ml_df[met_class].value_counts(normalize=True)
-        fractions['NeuronChatDB'] = nc_df[met_class].value_counts(normalize=True)
+        fractions['scConnect'] = sc_df[met_class].value_counts(normalize=True)
+        fractions['NeuronChat'] = nc_df[met_class].value_counts(normalize=True)
         fractions['CellphoneDB'] = cp_df[met_class].value_counts(normalize=True)
+        fractions['Cellinker'] = cl_df[met_class].value_counts(normalize=True)
         fractions['MebocostDB'] = me_df[met_class].value_counts(normalize=True)
         s = fractions.sum(axis=1)
         fractions = fractions[s > 0.09]
         colsums = fractions.sum(axis=0)
-        others = pd.DataFrame({'MetalinksDB': 1 - colsums['MetalinksDB'], 'NeuronChatDB': 1 - colsums['NeuronChatDB'], 'CellphoneDB': 1 - colsums['CellphoneDB'], 'MebocostDB': 1 - colsums['MebocostDB']}, index=['Others'])
-        fractions = fractions.append(others)
+        others = pd.DataFrame({'MetalinksDB': 1 - colsums['MetalinksDB'], 
+                                'scConnect': 1 - colsums['scConnect'],
+                               'NeuronChat': 1 - colsums['NeuronChat'],
+                               'CellphoneDB': 1 - colsums['CellphoneDB'], 
+                                'Cellinker': 1 - colsums['Cellinker'],                               
+                               'MebocostDB': 1 - colsums['MebocostDB']
+                               }, index=['Others'])
+        fractions = pd.concat([fractions, others])
+        fractions = fractions.fillna(0)
         res.append(fractions)
 
     return res
 
 
 def figure_2(df, hm, values, matrix1, matrix2, subject='Enzyme sets'):
-    labels = ['NeuronChatDB', 'CellphoneDB', 'MebocostDB', 'MetalinksDB']
+    labels = ['NeuronChat', 'CellphoneDB', 'MebocostDB', 'MetalinksDB']
     row_labels = ['NCDB', 'CPDB', 'MDB', 'MLDB']
     col_labels = ['NCDB', 'CPDB', 'MDB', 'MLDB']
     data1 = np.array(matrix1)
@@ -233,8 +247,8 @@ def figure_2(df, hm, values, matrix1, matrix2, subject='Enzyme sets'):
 def prepro_hm(hm):
 
     hm = hm.fillna(0).iloc[:, ::-1]
-    hm = hm[['NeuronChatDB', 'CellphoneDB', 'MebocostDB', 'MetalinksDB']]
-    hm.columns = ['NCDB', 'CPDB', 'MDB', 'MLDB']
+    hm = hm[['NeuronChat', 'CellphoneDB','Cellinker', 'MebocostDB', 'scConnect', 'MetalinksDB']]
+    hm.columns = ['NeuronChat', 'CellphoneDB','Cellinker', 'MebocostDB', 'scConnect', 'MetalinksDB']
     # hm.index = ['Organoheterocyclic compounds', 'Benzenoids',
     #     'Lipids and lipid-like molecules', 'Organic acids and derivatives',
     #     'Organic oxygen compounds', 'Nucleosides, nucleotides',
@@ -281,15 +295,15 @@ def get_jaccard(hmdb_ids):
     return(jaccard_matrix)
 
 
-def cosmos_DE_before(MR_path = '/home/efarr/Documents/GitHub/metalinks/metalinksDB/MR_500500900_Kidney-pred.csv'):
-    metabolites = pd.read_csv('/home/efarr/Documents/metalinks/Data/Intermediate/COSMOS/metab_ttop_tumour_vs_healthy.csv', index_col=0)
-    RNA = pd.read_csv('/home/efarr/Documents/metalinks/Data/Intermediate/COSMOS/RNA_ttop_tumorvshealthy.csv', index_col=0)
-    COSMOS_mapping = pd.read_csv('/home/efarr/Documents/metalinks/Data/Intermediate/Mapping/ocean_mets.csv', index_col=0)
+def cosmos_DE_before(MR_path = '/Users/ef6/Documents/GitHub/metalinks_analysis/metalinksDB/MR_500500900_Kidney-pred.csv'):
+    metabolites = pd.read_csv('/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/COSMOS/metab_ttop_tumour_vs_healthy.csv', index_col=0)
+    RNA = pd.read_csv('/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/COSMOS/RNA_ttop_tumorvshealthy.csv', index_col=0)
+    COSMOS_mapping = pd.read_csv('/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/Mapping/ocean_mets.csv', index_col=0)
     MR = pd.read_csv(MR_path)
     MR['HMDB'] = MR['HMDB'].str.replace('"', '')
     MR['Symbol'] = MR['Symbol'].str.replace('"', '')
 
-    RNA_IDS = pd.read_csv('/home/efarr/Documents/metalinks/Data/Intermediate/Mapping/COSMOS_RNA.csv', index_col=0)
+    RNA_IDS = pd.read_csv('/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/Mapping/COSMOS_RNA.csv', index_col=0)
     RNA_IDS = RNA_IDS[RNA_IDS['SYMBOL'].isin(MR['Symbol'])]
     metabolites = metabolites.join(COSMOS_mapping, how='left')
     metabolites = metabolites[metabolites['HMDB'].isin(MR['HMDB'])]
@@ -321,9 +335,9 @@ def cosmos_DE_before(MR_path = '/home/efarr/Documents/GitHub/metalinks/metalinks
 def metalinks_DE():
 
     # loading and preprocessing
-    COSMOS_RNA = pd.read_csv('/home/efarr/Documents/GitHub/metalinks_benchmark/data/RNA_counts_vsn.tsv',  sep = '\t', index_col=0).T
-    COSMOS_MET = pd.read_csv('/home/efarr/Documents/GitHub/metalinks_benchmark/data/raw_metabolomic_vsn.csv', sep = ',', index_col=0).T
-    COSMOS_mapping = pd.read_csv('/home/efarr/Documents/metalinks/Data/Intermediate/Mapping/ocean_mets.csv', index_col=0)
+    COSMOS_RNA = pd.read_csv('/Users/ef6/Documents/GitHub/metalinks_benchmark/data/RNA_counts_vsn.tsv',  sep = '\t', index_col=0).T
+    COSMOS_MET = pd.read_csv('/Users/ef6/Documents/GitHub/metalinks_benchmark/data/raw_metabolomic_vsn.csv', sep = ',', index_col=0).T
+    COSMOS_mapping = pd.read_csv('/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/Mapping/ocean_mets.csv', index_col=0)
     COSMOS_MET.columns = COSMOS_mapping['HMDB']
 
     #decide on how to treat zero values
@@ -336,7 +350,7 @@ def metalinks_DE():
     COSMOS_RNA = COSMOS_RNA[COSMOS_RNA.index.isin(COSMOS_MET.index)].sort_index()
     COSMOS_MET = COSMOS_MET.T
     COSMOS_RNA = COSMOS_RNA.T
-    MR_path = '/home/efarr/Documents/BC/TestDBs/Kidney_after_DB_F.csv'
+    MR_path = '/Users/ef6/Documents/BC/TestDBs/Kidney_after_DB_F.csv'
     MR = pd.read_csv(MR_path)
     MR['HMDB'] = MR['HMDB'].str.replace('"', '')
     MR['Symbol'] = MR['Symbol'].str.replace('"', '')
