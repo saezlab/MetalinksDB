@@ -23,14 +23,14 @@ def load_prepro_metalinks(anno_path = '/Users/ef6/Documents/Saez/metalinks/Data/
     return PD_original, MR_original, df, PD
 
 def load_prepro_other_dbs(MR_original, PD_original,
-                          cellphone_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/Cellphone_suptab4_curated.xlsx',
+                          cellphone_path = '/Users/ef6/Documents/GitHub/metalinks/data/CellphoneDB/Cellphone_suptab4_curated.xlsx',
                           neuronchat_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/NeuronChatDB_human.csv',
                           mebocost_PD_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/MebocostPD.tsv',
                           mebocost_MR_path = '/Users/ef6/Documents/Saez/metalinks/Data/Source/Other_DBs/MebocostDB.tsv',
                           neuronchat_table_path = '/Users/ef6/Documents/Saez/metalinks/Data/Intermediate/Mapping/Neuronchat_table.csv'):
     cpdb = pd.read_excel(cellphone_path)
-    metabolites = cpdb.iloc[0:230,2]
-    sensors = cpdb.iloc[0:230,3]
+    metabolites = cpdb.iloc[:,2]
+    sensors = cpdb.iloc[:,3]
     sensors = [x.split('_')[0] for x in sensors]
     unique_metabolites_cpdb = np.unique(metabolites)
     unique_sensors_cpdb = np.unique(sensors)

@@ -42,3 +42,5 @@ metalinks/.ipynb_checkpoints/visualization-checkpoint.py
 scripts/__pycache__/aux.cpython-310.pyc
 *.pyc
 *.log
+metalinksDB/.DS_Store
+nb/.DS_Store
